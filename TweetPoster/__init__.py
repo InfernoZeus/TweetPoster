@@ -113,11 +113,12 @@ def main():
     from TweetPoster.twitter import Twitter
 
     db = Database()
-    db.init()
+    db.init(clean=True)
     twitter = Twitter()
     reddit = Redditor().login(
         config['reddit']['username'],
-        config['reddit']['password']
+        config['reddit']['password'],
+        config['reddit']['subreddits']
     )
 
     while True:
@@ -172,6 +173,14 @@ def handle_submission(post, twitter, reddit):
     tweets = []
     while True:
         tweets.insert(0, tweet.markdown)
+
+        index = 1
+        next_part = tweet.next_part
+        while next_part is not None:
+            tweets.insert(index, next_part.markdown)
+            next_part = next_part.next_part
+            index = index + 1
+
         if tweet.reply_to is None:
             break
         else:

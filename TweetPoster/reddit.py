@@ -20,7 +20,7 @@ class Redditor(User):
         if not bypass_ratelimit:
             pre_request.connect(self._ratelimit, sender=self)
 
-    def login(self, username, password):
+    def login(self, username, password, subreddits):
         """
         Logs a user in, stores modhash in Redditor.modhash
 
@@ -40,6 +40,7 @@ class Redditor(User):
 
         self.modhash = r.json()['json']['data']['modhash']
         self.authenticated = True
+        self.subreddits = subreddits
         return self
 
     def comment(self, thing_id, comment):
@@ -71,13 +72,17 @@ class Redditor(User):
             r = self.get(url, params=dict(limit=100))
             assert r.status_code == 200
             all_posts = r.json()['data']['children']
+            print "got %d posts" % len(all_posts)
         except (RequestException, ValueError, AssertionError, timeout):
+            print "failed to get posts"
             return []
 
         posts = [
             Submission(p) for p in all_posts
             if not db.has_processed(p['data']['name'])
+            if self.subreddits is None or p['data']['subreddit'] in self.subreddits
         ]
+        print "accepted %d posts" % len(posts)
         return posts
 
     def _ratelimit(self, sender):
@@ -99,6 +104,7 @@ class Submission(object):
         self.url = json['data']['url']
         self.id = json['data']['id']
         self.fullname = json['data']['name']
+        self.subreddit = json['data']['subreddit']
 
     def mark_as_processed(self, db=db):
         db.mark_as_processed(self.fullname)
